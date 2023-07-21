@@ -4,7 +4,7 @@ or set --universal TLDR_PROGRAM_BLACKLIST_PATH $__fish_user_data_dir/tldr-on-err
 function _tldr-on-error_install --on-event tldr-on-error_install
     # Set universal variables, create bindings, and other initialization logic.
     fisher install kpbaks/log.fish
-    fisher install jorgebucaran/humantime.fish
+    fisher install kpbaks/peopletime.fish
     test -f $TLDR_PROGRAM_BLACKLIST_PATH; or touch $TLDR_PROGRAM_BLACKLIST_PATH
 end
 
@@ -147,7 +147,8 @@ function __tldr_postexec --on-event fish_postexec
     #       this will require some refactoring of the code below
     contains -- "$program" (cat $TLDR_PROGRAM_BLACKLIST_PATH); and return
 
-    log info "attempting to run `tldr $program` ..."
+    set -l cmd (echo "tldr $program" | fish_indent --ansi)
+    log info "attempting to run $cmd..."
 
     # TODO: print a message explaining why tldr is run<01-09-22, kpbs5 kristoffer.pbs@tuta.io>
     if not tldr $program 2>/dev/null
@@ -155,17 +156,16 @@ function __tldr_postexec --on-event fish_postexec
         log info "trying to update tldr cache ..."
         tldr --update 2>/dev/null
         log info "cache update complete"
-        log info "attempting to run tldr `$program` again ..."
+        log info "attempting to run $cmd""again ..."
         if not tldr $program 2>/dev/null
             log warn "tldr information about `$program` was not found"
             log info "updating tldr cache did not help. `$program` will be added to the the blacklist"
             echo $program >>$TLDR_PROGRAM_BLACKLIST_PATH
-            log info "the tldr blacklist cache currently contains $(count < $TLDR_PROGRAM_BLACKLIST_PATH) entries:" (cat $TLDR_PROGRAM_BLACKLIST_PATH)
+            log info "the tldr blacklist cache currently contains $(set_color cyan)$(count < $TLDR_PROGRAM_BLACKLIST_PATH)$(set_color normal) entries:" (cat $TLDR_PROGRAM_BLACKLIST_PATH)
             set --local now (date +%s)
-            # TODO: is the math correct?
-            # FIXME: <kpbaks 2023-07-17 20:45:04> humantime does not work with days
-            set --local time_remaining_to_blacklist_clear (math "$TLDR_PROGRAM_BLACKLIST_TIMEOUT - ($now - $TLDR_PROGRAM_BLACKLIST_CREATION_TIMESTAMP)")
-            log info "the blacklist will be cleared in $(humantime $time_remaining_to_blacklist_clear)"
+            set --local seconds_remaining_to_blacklist_clear (math "$TLDR_PROGRAM_BLACKLIST_TIMEOUT - ($now - $TLDR_PROGRAM_BLACKLIST_CREATION_TIMESTAMP)")
+            set -l t (peopletime (math "$seconds_remaining_to_blacklist_clear * 1000"))
+            log info "the blacklist will be cleared in $(set_color blue)$t$(set_color normal)"
         end
     end
 end
