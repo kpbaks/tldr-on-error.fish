@@ -18,27 +18,73 @@ function _tldr-on-error_uninstall --on-event tldr-on-error_uninstall
     functions --query __tldr_postexec; and functions --erase __tldr_postexec
 end
 
+function __tldr-on-error.fish::print::__prefix
+    set --local reset (set_color normal)
+    printf "[%s%s%s] " (set_color $fish_color_command) tldr-on-error $reset >&2
+end
+
+function __tldr-on-error.fish::print::err
+    __tldr-on-error.fish::print::__prefix
+    set --local red (set_color red)
+    set --local reset (set_color normal)
+    printf "%serror:%s " $red $reset >&2
+    printf $argv >&2
+end
+
+function __tldr-on-error.fish::print::warn
+    __tldr-on-error.fish::print::__prefix
+    set --local yellow (set_color yellow)
+    set --local reset (set_color normal)
+    printf "%swarn:%s  " $yellow $reset >&2
+    printf $argv >&2
+end
+
+function __tldr-on-error.fish::print::info
+    __tldr-on-error.fish::print::__prefix
+    set --local cyan (set_color cyan)
+    set --local reset (set_color normal)
+    printf "%sinfo:%s  " $cyan $reset >&2
+    printf $argv >&2
+end
+
+function __tldr-on-error.fish::print::suggest
+    __tldr-on-error.fish::print::__prefix
+    set --local blue (set_color blue)
+    set --local reset (set_color normal)
+    printf "%ssuggestion:%s " $blue $reset >&2
+    printf $argv >&2
+end
 
 status is-interactive; or return
 
 if not command --query tldr
-    log error "executable 'tldr' was not found in \$PATH, no hooks created"
-    if command --query nix-env
-        log info "installing tldr with nix-env ..."
-        nix-env -iA nixpkgs.tealdeer
-        log info "tldr installed"
+    __tldr-on-error.fish::print::error "Executable 'tldr' was not found in \$PATH, no hooks created"
+    set --local install_commands
+    if command --query nix
+        set --append install_commands "nix profile install nigpkgs#tealdeer"
+    else if command --query nix-env
+        set --append install_commands "nix-env -iA nixpkgs.tealdeer"
     else if command --query cargo
-        log info "installing tldr with cargo ..."
-        cargo install tealdeer
-        log info "tldr installed"
-    else
-        return 0
+        set --append install_commands "cargo install tealdeer"
     end
+
+    __tldr-on-error.fish::print::info "For ways to install 'tldr' see https://dbrgn.github.io/tealdeer/installing.html"
+
+    if test (count $install_commands) -gt 0
+        __tldr-on-error.fish::print::suggest "Looking at your \$PATH, the following commands should work:"
+        for command in $install_commands
+            printf " - %s\n" (printf (echo $command | fish_indent --ansi))
+        end
+    end
+
+    return 0
 end
 
 # Setup universal variables
-set --query TLDR_PROGRAM_BLACKLIST_TIMEOUT; or set --universal TLDR_PROGRAM_BLACKLIST_TIMEOUT (math "60 * 60 * 24 * 7") # 7 days
-set --query TLDR_PROGRAM_BLACKLIST_CREATION_TIMESTAMP; or set --universal TLDR_PROGRAM_BLACKLIST_CREATION_TIMESTAMP (date +%s)
+set --query TLDR_PROGRAM_BLACKLIST_TIMEOUT
+or set --universal TLDR_PROGRAM_BLACKLIST_TIMEOUT (math "60 * 60 * 24 * 7") # 7 days
+set --query TLDR_PROGRAM_BLACKLIST_CREATION_TIMESTAMP
+or set --universal TLDR_PROGRAM_BLACKLIST_CREATION_TIMESTAMP (date +%s)
 
 # Clear the blacklist if it has expired
 set --local now (date +%s)
@@ -51,29 +97,29 @@ if test $dt -ge $TLDR_PROGRAM_BLACKLIST_TIMEOUT
 end
 
 function tldr-on-error
-    set -l options (fish_opt --short=h --long=help)
+    set --local options (fish_opt --short=h --long=help)
     if not argparse $options -- $argv
         return 1
     end
 
     if set --query _flag_help
-        set -l usage "$(set_color --bold)Manipulate tldr-on-error.fish$(set_color normal)
+        set --local usage "$(set_color --bold)Manipulate tldr-on-error.fish$(set_color normal)
 
-$(set_color yellow)Usage:$(set_color normal) $(set_color blue)$(status current-command)$(set_color normal) [options]
+        $(set_color yellow)Usage:$(set_color normal) $(set_color blue)$(status current-command)$(set_color normal) [options]
 
-$(set_color yellow)Arguments:$(set_color normal)
+        $(set_color yellow)Arguments:$(set_color normal)
 
-$(set_color yellow)Options:$(set_color normal)
-	$(set_color green)-h$(set_color normal), $(set_color green)--help$(set_color normal)      Show this help message and exit"
+        $(set_color yellow)Options:$(set_color normal)
+        $(set_color green)-h$(set_color normal), $(set_color green)--help$(set_color normal) Show this help message and exit"
 
         echo $usage
         return 0
     end
 
-    set -l argc (count $argv)
+    set --local argc (count $argv)
     test $argc -eq 0; and tldr-on-error --help; and return 1
 
-    set -l verb $argv[1]
+    set --local verb $argv[1]
     switch $verb
         case on enable
             source (status current-filename)
@@ -88,7 +134,7 @@ $(set_color yellow)Options:$(set_color normal)
         case list blacklist
             test -f $TLDR_PROGRAM_BLACKLIST_PATH; and cat $TLDR_PROGRAM_BLACKLIST_PATH; or echo "blacklist is empty"
         case "*"
-            set -l valid_verbs on enable off disable clear list blacklist
+            set --local valid_verbs on enable off disable clear list blacklist
             echo "invalid verb: $verb"
             printf "- %s\n" $valid_verbs
             return 1
@@ -124,7 +170,7 @@ function __tldr_postexec --on-event fish_postexec
         end
     end
 
-    set -l programs_where_tldr_has_a_dedicated_page_for_some_of_its_subcommands \
+    set --local programs_where_tldr_has_a_dedicated_page_for_some_of_its_subcommands \
         git \
         docker \
         podman \
@@ -147,7 +193,7 @@ function __tldr_postexec --on-event fish_postexec
     #       this will require some refactoring of the code below
     contains -- "$program" (cat $TLDR_PROGRAM_BLACKLIST_PATH); and return
 
-    set -l cmd (echo "tldr $program" | fish_indent --ansi)
+    set --local cmd (echo "tldr $program" | fish_indent --ansi)
     log info "attempting to run $cmd..."
 
     # TODO: print a message explaining why tldr is run<01-09-22, kpbs5 kristoffer.pbs@tuta.io>
@@ -164,7 +210,7 @@ function __tldr_postexec --on-event fish_postexec
             log info "the tldr blacklist cache currently contains $(set_color cyan)$(count < $TLDR_PROGRAM_BLACKLIST_PATH)$(set_color normal) entries:" (cat $TLDR_PROGRAM_BLACKLIST_PATH)
             set --local now (date +%s)
             set --local seconds_remaining_to_blacklist_clear (math "$TLDR_PROGRAM_BLACKLIST_TIMEOUT - ($now - $TLDR_PROGRAM_BLACKLIST_CREATION_TIMESTAMP)")
-            set -l t (peopletime (math "$seconds_remaining_to_blacklist_clear * 1000"))
+            set --local t (peopletime (math "$seconds_remaining_to_blacklist_clear * 1000"))
             log info "the blacklist will be cleared in $(set_color blue)$t$(set_color normal)"
         end
     end
