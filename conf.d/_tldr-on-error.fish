@@ -3,7 +3,7 @@ or set --universal TLDR_PROGRAM_BLACKLIST_PATH $__fish_user_data_dir/tldr-on-err
 
 function _tldr-on-error_install --on-event tldr-on-error_install
     # Set universal variables, create bindings, and other initialization logic.
-    fisher install kpbaks/log.fish
+    # fisher install kpbaks/log.fish
     fisher install kpbaks/peopletime.fish
     test -f $TLDR_PROGRAM_BLACKLIST_PATH; or touch $TLDR_PROGRAM_BLACKLIST_PATH
 end
@@ -20,7 +20,7 @@ end
 
 function __tldr-on-error.fish::print::__prefix
     set --local reset (set_color normal)
-    printf "[%s%s%s] " (set_color $fish_color_command) tldr-on-error $reset >&2
+    printf "[%s%s%s] " (set_color $fish_color_command) tldr-on-error.fish $reset >&2
 end
 
 function __tldr-on-error.fish::print::err
@@ -29,22 +29,25 @@ function __tldr-on-error.fish::print::err
     set --local reset (set_color normal)
     printf "%serror:%s " $red $reset >&2
     printf $argv >&2
+    printf "\n" >&2
 end
 
 function __tldr-on-error.fish::print::warn
     __tldr-on-error.fish::print::__prefix
     set --local yellow (set_color yellow)
     set --local reset (set_color normal)
-    printf "%swarn:%s  " $yellow $reset >&2
+    printf "%swarn:%s " $yellow $reset >&2
     printf $argv >&2
+    printf "\n" >&2
 end
 
 function __tldr-on-error.fish::print::info
     __tldr-on-error.fish::print::__prefix
     set --local cyan (set_color cyan)
     set --local reset (set_color normal)
-    printf "%sinfo:%s  " $cyan $reset >&2
+    printf "%sinfo:%s " $cyan $reset >&2
     printf $argv >&2
+    printf "\n" >&2
 end
 
 function __tldr-on-error.fish::print::suggest
@@ -53,6 +56,7 @@ function __tldr-on-error.fish::print::suggest
     set --local reset (set_color normal)
     printf "%ssuggestion:%s " $blue $reset >&2
     printf $argv >&2
+    printf "\n" >&2
 end
 
 status is-interactive; or return
@@ -93,7 +97,7 @@ if test $dt -ge $TLDR_PROGRAM_BLACKLIST_TIMEOUT
     test -f $TLDR_PROGRAM_BLACKLIST_PATH; and rm $TLDR_PROGRAM_BLACKLIST_PATH
     touch $TLDR_PROGRAM_BLACKLIST_PATH
     set TLDR_PROGRAM_BLACKLIST_CREATION_TIMESTAMP (date +%s)
-    log info "clearing tldr program blacklist"
+    __tldr-on-error.fish::print::info "clearing tldr program blacklist"
 end
 
 function tldr-on-error
@@ -102,7 +106,9 @@ function tldr-on-error
         return 1
     end
 
+
     if set --query _flag_help
+        # TODO: <kpbaks 2023-09-15 22:08:26> use multiple prints instead of a single print
         set --local usage "$(set_color --bold)Manipulate tldr-on-error.fish$(set_color normal)
 
         $(set_color yellow)Usage:$(set_color normal) $(set_color blue)$(status current-command)$(set_color normal) [options]
@@ -135,18 +141,19 @@ function tldr-on-error
             test -f $TLDR_PROGRAM_BLACKLIST_PATH; and cat $TLDR_PROGRAM_BLACKLIST_PATH; or echo "blacklist is empty"
         case "*"
             set --local valid_verbs on enable off disable clear list blacklist
-            echo "invalid verb: $verb"
+            __tldr-on-error.fish::print::error "invalid verb: $verb"
             printf "- %s\n" $valid_verbs
             return 1
     end
 end
 
 function __tldr_postexec --on-event fish_postexec
-    if contains $status 0 127 # 127 is the status code returned by fish when a command is not found
-        return
-    end
+    contains $status 0 127; and return # 127 is the status code returned by fish when a command is not found
 
     block --local # tldr --update might fail
+
+    # TODO: <kpbaks 2023-09-15 22:02:43> handle case where the first tokens are temporary environment variables
+    # 	 e.g. `FOO=bar tldr foo`
 
     # Some programs will return non-zero status codes even when they are
     # invoked with { -h | --help } or { -v | --version }
@@ -194,24 +201,32 @@ function __tldr_postexec --on-event fish_postexec
     contains -- "$program" (cat $TLDR_PROGRAM_BLACKLIST_PATH); and return
 
     set --local cmd (echo "tldr $program" | fish_indent --ansi)
-    log info "attempting to run $cmd..."
+    __tldr-on-error.fish::print::info "attempting to run $cmd..."
 
     # TODO: print a message explaining why tldr is run<01-09-22, kpbs5 kristoffer.pbs@tuta.io>
     if not tldr $program 2>/dev/null
-        log warn "tldr information about $program was not found"
-        log info "trying to update tldr cache ..."
+        __tldr-on-error.fish::print::warn "tldr information about $program was not found"
+        __tldr-on-error.fish::print::info "trying to update tldr cache ..."
         tldr --update 2>/dev/null
-        log info "cache update complete"
-        log info "attempting to run $cmd""again ..."
+        __tldr-on-error.fish::print::info "cache update complete"
+        __tldr-on-error.fish::print::info "attempting to run $cmd""again ..."
         if not tldr $program 2>/dev/null
-            log warn "tldr information about `$program` was not found"
-            log info "updating tldr cache did not help. `$program` will be added to the the blacklist"
+            __tldr-on-error.fish::print::info "tldr information about `$program` was not found"
+            __tldr-on-error.fish::print::info "updating tldr cache did not help. `$program` will be added to the the blacklist"
             echo $program >>$TLDR_PROGRAM_BLACKLIST_PATH
-            log info "the tldr blacklist cache currently contains $(set_color cyan)$(count < $TLDR_PROGRAM_BLACKLIST_PATH)$(set_color normal) entries:" (cat $TLDR_PROGRAM_BLACKLIST_PATH)
+            # __tldr-on-error.fish::print::info "the tldr blacklist cache currently contains $(set_color cyan)$(count < $TLDR_PROGRAM_BLACKLIST_PATH)$(set_color normal) entries:" (cat $TLDR_PROGRAM_BLACKLIST_PATH)
+            __tldr-on-error.fish::print::info "the tldr blacklist cache currently contains $(set_color cyan)$(count < $TLDR_PROGRAM_BLACKLIST_PATH)$(set_color normal) entries:"
+            # cat $TLDR_PROGRAM_BLACKLIST_PATH | fish_indent --ansi
+            set --local idx 1
+            cat $TLDR_PROGRAM_BLACKLIST_PATH | while read line
+                # printf " - %d) %s%s\n" $idx (printf (echo $line | fish_indent --ansi)) (set_color normal)
+                printf " - %s%s\n" (printf (echo $line | fish_indent --ansi)) (set_color normal)
+                set idx (math "$idx + 1")
+            end
             set --local now (date +%s)
             set --local seconds_remaining_to_blacklist_clear (math "$TLDR_PROGRAM_BLACKLIST_TIMEOUT - ($now - $TLDR_PROGRAM_BLACKLIST_CREATION_TIMESTAMP)")
-            set --local t (peopletime (math "$seconds_remaining_to_blacklist_clear * 1000"))
-            log info "the blacklist will be cleared in $(set_color blue)$t$(set_color normal)"
+            set --local t (peopletime (math "$seconds_remaining_to_blacklist_clear * 1000")) # peopletime expects milliseconds
+            __tldr-on-error.fish::print::info "the blacklist will be cleared in $(set_color blue)$t$(set_color normal)"
         end
     end
 end
