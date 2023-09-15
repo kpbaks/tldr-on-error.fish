@@ -106,19 +106,19 @@ function tldr-on-error
         return 1
     end
 
+    set --local reset (set_color normal)
+    set --local yellow (set_color yellow)
+    set --local green (set_color green)
+    set --local blue (set_color blue)
 
     if set --query _flag_help
-        # TODO: <kpbaks 2023-09-15 22:08:26> use multiple prints instead of a single print
-        set --local usage "$(set_color --bold)Manipulate tldr-on-error.fish$(set_color normal)
+        printf "%sManipulate tldr-on-error.fish%s\n" (set_color --bold) $reset
+        printf "\n"
+        printf "%sUsage:%s %s%s%s [options]\n" $yellow $reset $blue (status current-command) $reset
+        printf "\n"
+        printf "%sOptions:%s\n" $yellow $reset
+        printf "\t%s-h%s, %s--help%s Show this help message and exit\n" $green $reset $green $reset
 
-        $(set_color yellow)Usage:$(set_color normal) $(set_color blue)$(status current-command)$(set_color normal) [options]
-
-        $(set_color yellow)Arguments:$(set_color normal)
-
-        $(set_color yellow)Options:$(set_color normal)
-        $(set_color green)-h$(set_color normal), $(set_color green)--help$(set_color normal) Show this help message and exit"
-
-        echo $usage
         return 0
     end
 
@@ -126,19 +126,27 @@ function tldr-on-error
     test $argc -eq 0; and tldr-on-error --help; and return 1
 
     set --local verb $argv[1]
+    # TODO: <kpbaks 2023-09-15 22:31:59> add completions
     switch $verb
         case on enable
             source (status current-filename)
         case off disable
             functions --erase __tldr_postexec
         case status
-            functions --query __tldr_postexec; and echo enabled; or echo disabled
+            set --local state (functions --query __tldr_postexec; and echo enabled; or echo disabled)
+            set --local color (test $state = enabled; and echo green; or echo red)
+            __tldr-on-error.fish::print::info (printf "tldr-on-error.fish is %s%s%s\n" (set_color $color) $state $reset)
         case clear
             test -f $TLDR_PROGRAM_BLACKLIST_PATH; and rm $TLDR_PROGRAM_BLACKLIST_PATH
             touch $TLDR_PROGRAM_BLACKLIST_PATH
             set TLDR_PROGRAM_BLACKLIST_CREATION_TIMESTAMP (date +%s)
+            __tldr-on-error.fish::print::info "clearing tldr program blacklist"
         case list blacklist
-            test -f $TLDR_PROGRAM_BLACKLIST_PATH; and cat $TLDR_PROGRAM_BLACKLIST_PATH; or echo "blacklist is empty"
+            if test -f $TLDR_PROGRAM_BLACKLIST_PATH
+                cat $TLDR_PROGRAM_BLACKLIST_PATH | fish_indent --ansi
+            else
+                __tldr-on-error.fish::print::info "the tldr blacklist cache is empty"
+            end
         case "*"
             set --local valid_verbs on enable off disable clear list blacklist
             __tldr-on-error.fish::print::error "invalid verb: $verb"
@@ -152,8 +160,6 @@ function __tldr_postexec --on-event fish_postexec
 
     block --local # tldr --update might fail
 
-    # TODO: <kpbaks 2023-09-15 22:02:43> handle case where the first tokens are temporary environment variables
-    # 	 e.g. `FOO=bar tldr foo`
 
     # Some programs will return non-zero status codes even when they are
     # invoked with { -h | --help } or { -v | --version }
@@ -164,6 +170,8 @@ function __tldr_postexec --on-event fish_postexec
         end
     end
 
+    # TODO: <kpbaks 2023-09-15 22:02:43> handle case where the first tokens are temporary environment variables
+    # 	 e.g. `FOO=bar tldr foo`
     set -f program (string split " " $argv)[1]
 
     # `tldr` will not have pages for fish functions, builtins
@@ -211,12 +219,11 @@ function __tldr_postexec --on-event fish_postexec
         __tldr-on-error.fish::print::info "cache update complete"
         __tldr-on-error.fish::print::info "attempting to run $cmd""again ..."
         if not tldr $program 2>/dev/null
-            __tldr-on-error.fish::print::info "tldr information about `$program` was not found"
+            __tldr-on-error.fish::print::warn "tldr information about `$program` was not found"
             __tldr-on-error.fish::print::info "updating tldr cache did not help. `$program` will be added to the the blacklist"
             echo $program >>$TLDR_PROGRAM_BLACKLIST_PATH
             # __tldr-on-error.fish::print::info "the tldr blacklist cache currently contains $(set_color cyan)$(count < $TLDR_PROGRAM_BLACKLIST_PATH)$(set_color normal) entries:" (cat $TLDR_PROGRAM_BLACKLIST_PATH)
             __tldr-on-error.fish::print::info "the tldr blacklist cache currently contains $(set_color cyan)$(count < $TLDR_PROGRAM_BLACKLIST_PATH)$(set_color normal) entries:"
-            # cat $TLDR_PROGRAM_BLACKLIST_PATH | fish_indent --ansi
             set --local idx 1
             cat $TLDR_PROGRAM_BLACKLIST_PATH | while read line
                 # printf " - %d) %s%s\n" $idx (printf (echo $line | fish_indent --ansi)) (set_color normal)
