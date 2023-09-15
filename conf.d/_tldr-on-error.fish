@@ -114,7 +114,14 @@ function tldr-on-error
     if set --query _flag_help
         printf "%sManipulate tldr-on-error.fish%s\n" (set_color --bold) $reset
         printf "\n"
-        printf "%sUsage:%s %s%s%s [options]\n" $yellow $reset $blue (status current-command) $reset
+        printf "%sUsage:%s %s%s%s [options] [verb]\n" $yellow $reset $blue (status current-command) $reset
+        printf "\n"
+        printf "%sVerbs:%s\n" $yellow $reset
+        printf "\t%son | enable%s\n" $green $reset
+        printf "\t%soff | disable%s\n" $green $reset
+        printf "\t%sstatus%s\n" $green $reset
+        printf "\t%sclear%s\n" $green $reset
+        printf "\t%slist | blacklist%s\n" $green $reset
         printf "\n"
         printf "%sOptions:%s\n" $yellow $reset
         printf "\t%s-h%s, %s--help%s Show this help message and exit\n" $green $reset $green $reset
