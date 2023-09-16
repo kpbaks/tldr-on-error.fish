@@ -1,4 +1,4 @@
-# tldr-on-error.fish
+ # tldr-on-error.fish
 
 [tldr](https://github.com/tldr-pages/tldr) is a great community effort to quickly document common use cases for command line tools.
 This plugin aims to make it easier to use `tldr` by automatically showing the tldr page for a command when it fails.
@@ -29,3 +29,6 @@ All you need to do is install the plugin, and it will automatically start showin
 ```fish
 fisher install kpbaks/tldr-on-error.fish
 ```
+## Dependencies
+
+The plugin expects you to use the `tldr` implementation called [tealdeer](https://dbrgn.github.io/tealdeer/). If a `tldr` command is not found in your path, a warning is printed, and the plugin will not be enabled. There exists many implementations of `tldr`, but this plugin has only been tested with `tealdeer`.
