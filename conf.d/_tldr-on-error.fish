@@ -244,13 +244,14 @@ function __tldr_postexec --on-event fish_postexec
     set --local program_syntax_highlighted (echo $program | fish_indent --ansi)
     __tldr-on-error.fish::print::info "attempting to run $tldr_command..."
 
-    if not tldr $program 2>/dev/null
+    # echo "program: $(string split " " "$program")"
+    if not tldr (string split " " "$program") 2>/dev/null
         __tldr-on-error.fish::print::warn "tldr information about $program_syntax_highlighted""was not found"
         __tldr-on-error.fish::print::info "trying to update tldr cache ..."
         tldr --update 2>/dev/null
         __tldr-on-error.fish::print::info "cache update complete"
         __tldr-on-error.fish::print::info "attempting to run $tldr_command""again ..."
-        if not tldr $program 2>/dev/null
+        if not tldr (string split " " "$program") 2>/dev/null
             __tldr-on-error.fish::print::warn "tldr information about $program_syntax_highlighted""was not found"
             __tldr-on-error.fish::print::info "updating tldr cache did not help. $program_syntax_highlighted""will be added to the the blacklist"
             echo $program >>$TLDR_PROGRAM_BLACKLIST_PATH
