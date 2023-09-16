@@ -24,8 +24,6 @@ The plugin tries to be smart about when to show you a tldr page:
 
 Some commands like `git` and `docker` have separate tldr pages for each subcommand. The plugin will try to show you specific subcommand pages when possible.
 
-todo: add video demo
-
 ## Usage
 
 All you need to do is install the plugin, and it will automatically start showing you tldr pages when commands fail. The plugin also comes with a function called `tldr-on-error` that you can use to manage the plugin. You can use it to enable/disable the plugin, or to clear the blacklists. See `tldr-on-error --help` for more information.
