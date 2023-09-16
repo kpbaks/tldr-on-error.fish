@@ -222,6 +222,17 @@ function __tldr_postexec --on-event fish_postexec
         end
     end
 
+    set --query previous_tldr_checks_in_this_shell_session
+    or set --global previous_tldr_checks_in_this_shell_session
+
+    # If the program has been checked before in this shell session, do not show the tldr page
+    for p in $previous_tldr_checks_in_this_shell_session
+        if test $program = $p
+            __tldr-on-error.fish::print::info "already checked $program in this shell session: $fish_pid"
+            return
+        end
+    end
+
     # If the program is in the blacklist, do not show the tldr page
     # NOTE: Repeated tldrs for the same errornous command is annoying.
     #       We should only show the tldr page once for each errornous command.
@@ -255,6 +266,9 @@ function __tldr_postexec --on-event fish_postexec
             set --local seconds_remaining_to_blacklist_clear (math "$TLDR_PROGRAM_BLACKLIST_TIMEOUT - ($now - $TLDR_PROGRAM_BLACKLIST_CREATION_TIMESTAMP)")
             set --local t (peopletime (math "$seconds_remaining_to_blacklist_clear * 1000")) # peopletime expects milliseconds
             __tldr-on-error.fish::print::info "the blacklist will be cleared in $(set_color blue)$t$(set_color normal)"
+            return
         end
     end
+
+    set --append previous_tldr_checks_in_this_shell_session $program
 end
