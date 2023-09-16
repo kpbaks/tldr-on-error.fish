@@ -163,10 +163,10 @@ function tldr-on-error
 end
 
 function __tldr_postexec --on-event fish_postexec
+    # TODO: <kpbaks 2023-09-16 10:54:14> handle $pipestatus
     contains $status 0 127; and return # 127 is the status code returned by fish when a command is not found
 
     block --local # tldr --update might fail
-
 
     # Some programs will return non-zero status codes even when they are
     # invoked with { -h | --help } or { -v | --version }
@@ -177,9 +177,28 @@ function __tldr_postexec --on-event fish_postexec
         end
     end
 
-    # TODO: <kpbaks 2023-09-15 22:02:43> handle case where the first tokens are temporary environment variables
+    # NOTE: handle case where the first tokens are temporary environment variables
     # 	 e.g. `FOO=bar tldr foo`
-    set -f program (string split " " $argv)[1]
+    set --local tokens (string split " " $argv)
+    set --local ephemeral_environment_variables
+    set --local program
+    set --local args
+    for token in $tokens
+        if string match --quiet --regex "\w+=\w+" -- $token
+            set --append ephemeral_environment_variables $token
+        else if test -z $program
+            set program $token
+        else
+            set --append args $token
+        end
+    end
+
+    # echo "program: $program"
+    # echo "ephemeral_environment_variables: $ephemeral_environment_variables"
+    # echo "tokens: $tokens"
+    # echo "args: $args"
+
+    # TODO: <kpbaks 2023-09-16 10:49:02> test if program is a script file with an extension
 
     # `tldr` will not have pages for fish functions, builtins
     if builtin --query $program; or functions --query $program
@@ -187,9 +206,7 @@ function __tldr_postexec --on-event fish_postexec
         # Think of aliases like `alias ls="ls --color=auto"`
         # If there is a program with the same name as the function, we
         # want to show the tldr page for the program.
-        if not command --query $program
-            return
-        end
+        command --query $program; or return
     end
 
     set --local programs_where_tldr_has_a_dedicated_page_for_some_of_its_subcommands \
@@ -198,36 +215,33 @@ function __tldr_postexec --on-event fish_postexec
         podman \
         cargo
 
-    # tldr has pages for { git, docker } subcommands, so if the command is { git, docker } include the subcommand
-    # in $program
     for p in $programs_where_tldr_has_a_dedicated_page_for_some_of_its_subcommands
         if test $program = $p
-            set program (string split " " $argv)[..2]
+            set program "$program $args[1]"
             break
         end
     end
 
     # If the program is in the blacklist, do not show the tldr page
-    # NOTE: repeated tldrs for the same errornous command should is annoying
-    #       we should only show the tldr page once for each errornous command
-    #       we can do this by storing the last errornous command in a variable
-    #       and comparing it to the current command before showing the tldr page
-    #       this will require some refactoring of the code below
+    # NOTE: Repeated tldrs for the same errornous command is annoying.
+    #       We should only show the tldr page once for each errornous command.
+    #       We can do this by storing the last errornous command in a variable,
+    #       and comparing it to the current command before showing the tldr page.
     contains -- "$program" (cat $TLDR_PROGRAM_BLACKLIST_PATH); and return
 
-    set --local cmd (echo "tldr $program" | fish_indent --ansi)
-    __tldr-on-error.fish::print::info "attempting to run $cmd..."
+    set --local tldr_command (echo "tldr $program" | fish_indent --ansi)
+    set --local program_syntax_highlighted (echo $program | fish_indent --ansi)
+    __tldr-on-error.fish::print::info "attempting to run $tldr_command..."
 
-    # TODO: print a message explaining why tldr is run<01-09-22, kpbs5 kristoffer.pbs@tuta.io>
     if not tldr $program 2>/dev/null
-        __tldr-on-error.fish::print::warn "tldr information about $program was not found"
+        __tldr-on-error.fish::print::warn "tldr information about $program_syntax_highlighted""was not found"
         __tldr-on-error.fish::print::info "trying to update tldr cache ..."
         tldr --update 2>/dev/null
         __tldr-on-error.fish::print::info "cache update complete"
-        __tldr-on-error.fish::print::info "attempting to run $cmd""again ..."
+        __tldr-on-error.fish::print::info "attempting to run $tldr_command""again ..."
         if not tldr $program 2>/dev/null
-            __tldr-on-error.fish::print::warn "tldr information about `$program` was not found"
-            __tldr-on-error.fish::print::info "updating tldr cache did not help. `$program` will be added to the the blacklist"
+            __tldr-on-error.fish::print::warn "tldr information about $program_syntax_highlighted""was not found"
+            __tldr-on-error.fish::print::info "updating tldr cache did not help. $program_syntax_highlighted""will be added to the the blacklist"
             echo $program >>$TLDR_PROGRAM_BLACKLIST_PATH
             # __tldr-on-error.fish::print::info "the tldr blacklist cache currently contains $(set_color cyan)$(count < $TLDR_PROGRAM_BLACKLIST_PATH)$(set_color normal) entries:" (cat $TLDR_PROGRAM_BLACKLIST_PATH)
             __tldr-on-error.fish::print::info "the tldr blacklist cache currently contains $(set_color cyan)$(count < $TLDR_PROGRAM_BLACKLIST_PATH)$(set_color normal) entries:"
