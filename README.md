@@ -3,7 +3,11 @@
 [tldr](https://github.com/tldr-pages/tldr) is a great community effort to quickly document common use cases for command line tools.
 This plugin aims to make it easier to use `tldr` by automatically showing the tldr page for a command when it fails.
 
-https://github.com/kpbaks/tldr-on-error.fish/assets/57013304/9687773f-7c3f-477a-9c27-655fadd0d233
+
+
+https://github.com/kpbaks/tldr-on-error.fish/assets/57013304/1caa2f55-92b1-4406-8523-9e2419d8eddf
+
+
 
 To avoid being annoyed by repeated pages, the plugin keeps track of two blacklists:
 - A global blacklist, that is populated by failed commands that are not in the tldr database.
