@@ -14,7 +14,7 @@ end
 
 function _tldr-on-error_uninstall --on-event tldr-on-error_uninstall
     # Erase "private" functions, variables, bindings, and other uninstall logic.
-    test -f $TLDR_PROGRAM_BLACKLIST_PATH; and rm $TLDR_PROGRAM_BLACKLIST_PATH
+    test -f $TLDR_PROGRAM_BLACKLIST_PATH; and command rm $TLDR_PROGRAM_BLACKLIST_PATH
     functions --query __tldr_postexec; and functions --erase __tldr_postexec
 end
 
@@ -94,7 +94,7 @@ or set --universal TLDR_PROGRAM_BLACKLIST_CREATION_TIMESTAMP (date +%s)
 set --local now (date +%s)
 set --local dt (math "$now - $TLDR_PROGRAM_BLACKLIST_CREATION_TIMESTAMP")
 if test $dt -ge $TLDR_PROGRAM_BLACKLIST_TIMEOUT
-    test -f $TLDR_PROGRAM_BLACKLIST_PATH; and rm $TLDR_PROGRAM_BLACKLIST_PATH
+    test -f $TLDR_PROGRAM_BLACKLIST_PATH; and command rm $TLDR_PROGRAM_BLACKLIST_PATH
     touch $TLDR_PROGRAM_BLACKLIST_PATH
     set TLDR_PROGRAM_BLACKLIST_CREATION_TIMESTAMP (date +%s)
     __tldr-on-error.fish::print::info "clearing tldr program blacklist"
@@ -144,7 +144,7 @@ function tldr-on-error
             set --local color (test $state = enabled; and echo green; or echo red)
             __tldr-on-error.fish::print::info (printf "tldr-on-error.fish is %s%s%s\n" (set_color $color) $state $reset)
         case clear
-            test -f $TLDR_PROGRAM_BLACKLIST_PATH; and rm $TLDR_PROGRAM_BLACKLIST_PATH
+            test -f $TLDR_PROGRAM_BLACKLIST_PATH; and command rm $TLDR_PROGRAM_BLACKLIST_PATH
             touch $TLDR_PROGRAM_BLACKLIST_PATH
             set TLDR_PROGRAM_BLACKLIST_CREATION_TIMESTAMP (date +%s)
             __tldr-on-error.fish::print::info "clearing tldr program blacklist"
